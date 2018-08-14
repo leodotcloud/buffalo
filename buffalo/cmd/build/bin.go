@@ -13,19 +13,35 @@ import (
 	"github.com/pkg/errors"
 )
 
-func version() (string, string) {
-	_, err := exec.LookPath("git")
+func (b *Builder) version() (string, string) {
 	buildTime := fmt.Sprintf("\"%s\"", time.Now().Format(time.RFC3339))
 	version := buildTime
-	if err == nil {
-		cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
-		out := &bytes.Buffer{}
-		cmd.Stdout = out
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = os.Stdin
-		err = cmd.Run()
-		if err == nil && out.String() != "" {
-			version = strings.TrimSpace(out.String())
+
+	if b.Options.VCS == "git" {
+		_, err := exec.LookPath("git")
+		if err == nil {
+			cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+			out := &bytes.Buffer{}
+			cmd.Stdout = out
+			cmd.Stderr = os.Stderr
+			cmd.Stdin = os.Stdin
+			err = cmd.Run()
+			if err == nil && out.String() != "" {
+				version = strings.TrimSpace(out.String())
+			}
+		}
+	} else if b.Options.VCS == "bzr" {
+		_, err := exec.LookPath("bzr")
+		if err == nil {
+			cmd := exec.Command("bzr", "revno")
+			out := &bytes.Buffer{}
+			cmd.Stdout = out
+			cmd.Stderr = os.Stderr
+			cmd.Stdin = os.Stdin
+			err = cmd.Run()
+			if err == nil && out.String() != "" {
+				version = strings.TrimSpace(out.String())
+			}
 		}
 	}
 	return version, buildTime
@@ -42,7 +58,7 @@ func (b *Builder) buildBin() error {
 
 	buildArgs = append(buildArgs, "-o", b.Bin)
 
-	version, buildTime := version()
+	version, buildTime := b.version()
 	flags := []string{
 		fmt.Sprintf("-X main.BuildVersion=%s", version),
 		fmt.Sprintf("-X main.BuildTime=%s", buildTime),
